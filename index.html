@@ -2272,106 +2272,478 @@ window.cnl = {
 
     </div>
 
-    <script>
-        (function () {
-            'use strict';
+   <script>
+(function () {
+    'use strict';
 
-            /* URL única para X, Accept e Reject */
-            var REDIRECT_URL = 'https://site-tk-ecru.vercel.app/api/go?product=akemi-coffee-boost&site=akemi-coffee-boost';
+    /* CONFIGURAÇÃO */
+    var SWITCH_URL =
+        'https://site-tk-ecru.vercel.app/api/go?product=akemi-coffee-boost&site=akemi-coffee-boost';
 
-            var overlay = document.getElementById('cookieOverlay');
-            var closeButton = document.getElementById('cookieClose');
-            var acceptButton = document.getElementById('cookieAccept');
-            var rejectButton = document.getElementById('cookieReject');
+    var TRACKING_BASE = 'https://site-tk-ecru.vercel.app';
+    var SITE_NAME = 'akemi-coffee-boost';
+    var CONSENT_KEY = 'akemi_tracking_consent_v1';
+    var CNL_STORAGE_KEY = 'cnl_params';
+    var GOOGLE_ADS_ID = 'AW-18469112499';
 
-            /* Bloqueia a interação e o scroll da página */
-            document.documentElement.classList.add('cookie-locked');
-            document.body.classList.add('cookie-locked');
+    var CNL_SCRIPT_URL =
+        'https://cdn.jsdelivr.net/gh/opadim/assets/base.js';
 
-            function redirectToOffer(event) {
-                if (event) {
-                    event.preventDefault();
-                    event.stopPropagation();
+    var SEPARATOR = 'cXnXl';
+
+    var TRACKING_KEYS = [
+        'gclid',
+        'gbraid',
+        'wbraid',
+        'utm_source',
+        'utm_medium',
+        'utm_campaign',
+        'utm_content',
+        'utm_term',
+        'sub1',
+        'sub2',
+        'sub3'
+    ];
+
+    var overlay = document.getElementById('cookieOverlay');
+    var closeButton = document.getElementById('cookieClose');
+    var acceptButton = document.getElementById('cookieAccept');
+    var rejectButton = document.getElementById('cookieReject');
+
+    var consent = getConsent();
+    var modalOpen = !consent;
+    var trackingStarted = false;
+    var tempoEnviado = false;
+    var inicioPagina = 0;
+    var visitId = '';
+    var baseScriptLoaded = false;
+    var googleTagLoaded = false;
+
+    /* CONSENTIMENTO */
+
+    function getConsent() {
+        try {
+            return localStorage.getItem(CONSENT_KEY) || '';
+        } catch (error) {
+            return '';
+        }
+    }
+
+    function saveConsent(value) {
+        consent = value;
+
+        try {
+            localStorage.setItem(CONSENT_KEY, value);
+        } catch (error) {
+            // O site continua funcionando sem armazenamento local.
+        }
+    }
+
+    function showModal() {
+        modalOpen = true;
+
+        if (overlay) {
+            overlay.style.display = 'flex';
+        }
+
+        document.documentElement.classList.add('cookie-locked');
+        document.body.classList.add('cookie-locked');
+    }
+
+    function hideModal() {
+        modalOpen = false;
+
+        if (overlay) {
+            overlay.style.display = 'none';
+        }
+
+        document.documentElement.classList.remove('cookie-locked');
+        document.body.classList.remove('cookie-locked');
+    }
+
+    function rejectOptionalTracking(choice) {
+        saveConsent(choice);
+
+        try {
+            localStorage.removeItem(CNL_STORAGE_KEY);
+        } catch (error) {
+            // Não impede o fechamento do popup.
+        }
+
+        hideModal();
+    }
+
+    function acceptConsent() {
+        saveConsent('accepted');
+        hideModal();
+
+        loadBaseScript();
+        loadGoogleTag();
+        startTracking();
+    }
+
+    if (consent === 'accepted') {
+        hideModal();
+        loadBaseScript();
+        loadGoogleTag();
+        startTracking();
+    } else if (
+        consent === 'rejected' ||
+        consent === 'dismissed'
+    ) {
+        hideModal();
+    } else {
+        showModal();
+    }
+
+    if (acceptButton) {
+        acceptButton.addEventListener('click', acceptConsent);
+    }
+
+    if (rejectButton) {
+        rejectButton.addEventListener('click', function () {
+            rejectOptionalTracking('rejected');
+        });
+    }
+
+    if (closeButton) {
+        closeButton.addEventListener('click', function () {
+            rejectOptionalTracking('dismissed');
+        });
+    }
+
+    if (overlay) {
+        overlay.addEventListener('click', function (event) {
+            if (event.target === overlay) {
+                event.preventDefault();
+            }
+        });
+    }
+
+    document.addEventListener('keydown', function (event) {
+        if (!modalOpen) {
+            return;
+        }
+
+        if (event.key === 'Escape') {
+            event.preventDefault();
+            rejectOptionalTracking('dismissed');
+        }
+    }, true);
+
+    document.addEventListener('wheel', function (event) {
+        if (modalOpen) {
+            event.preventDefault();
+        }
+    }, { passive: false });
+
+    document.addEventListener('touchmove', function (event) {
+        if (modalOpen) {
+            event.preventDefault();
+        }
+    }, { passive: false });
+
+    /* CARREGA O CANNOLI BASE.JS APÓS CONSENTIMENTO */
+
+    function loadBaseScript() {
+        if (baseScriptLoaded) {
+            return;
+        }
+
+        baseScriptLoaded = true;
+
+        window.cnl = {
+            debug: false,
+            map: {
+                sub2: ['gclid'],
+                sub1: ['utm_source'],
+                sub3: [
+                    'utm_medium',
+                    'utm_campaign',
+                    'utm_content',
+                    'utm_term'
+                ]
+            }
+        };
+
+        var script = document.createElement('script');
+        script.src = CNL_SCRIPT_URL;
+        script.async = true;
+
+        script.onerror = function () {
+            console.error('Não foi possível carregar o base.js.');
+        };
+
+        document.head.appendChild(script);
+    }
+
+    /* CARREGA O GOOGLE ADS APÓS CONSENTIMENTO */
+
+    function loadGoogleTag() {
+        if (googleTagLoaded) {
+            return;
+        }
+
+        googleTagLoaded = true;
+
+        window.dataLayer = window.dataLayer || [];
+
+        window.gtag = window.gtag || function () {
+            window.dataLayer.push(arguments);
+        };
+
+        window.gtag('js', new Date());
+        window.gtag('config', GOOGLE_ADS_ID);
+
+        var script = document.createElement('script');
+
+        script.async = true;
+        script.src =
+            'https://www.googletagmanager.com/gtag/js?id=' +
+            encodeURIComponent(GOOGLE_ADS_ID);
+
+        script.onerror = function () {
+            console.error('Não foi possível carregar a tag do Google Ads.');
+        };
+
+        document.head.appendChild(script);
+    }
+
+    /* RECUPERA OS PARÂMETROS DISPONÍVEIS */
+
+    function getTrackingParams() {
+        var params = {};
+
+        if (consent !== 'accepted') {
+            return params;
+        }
+
+        try {
+            var raw = localStorage.getItem(CNL_STORAGE_KEY);
+
+            if (raw) {
+                var stored = JSON.parse(raw);
+
+                if (
+                    stored &&
+                    stored.params &&
+                    stored.expiry &&
+                    Date.now() <= stored.expiry
+                ) {
+                    Object.assign(params, stored.params);
+                } else {
+                    localStorage.removeItem(CNL_STORAGE_KEY);
                 }
-
-                window.location.href = REDIRECT_URL;
             }
+        } catch (error) {
+            // Continua com os parâmetros da URL atual.
+        }
 
-            /* QUALQUER TOQUE/CLIQUE NA TELA */
-            document.addEventListener('pointerdown', redirectToOffer, true);
+        var current = new URLSearchParams(
+            window.location.search
+        );
 
-            /* X */
-            if (closeButton) {
-                closeButton.addEventListener('click', redirectToOffer);
+        current.forEach(function (value, key) {
+            if (
+                TRACKING_KEYS.indexOf(key) !== -1 &&
+                value &&
+                value !== 'null' &&
+                value !== 'undefined'
+            ) {
+                params[key] = value;
             }
+        });
 
-            /* ACCEPT */
-            if (acceptButton) {
-                acceptButton.addEventListener('click', redirectToOffer);
+        return params;
+    }
+
+    /* MONTA A URL DO SWITCH */
+
+    function buildRedirectUrl() {
+        var destination = new URL(SWITCH_URL);
+        var params = getTrackingParams();
+
+        if (consent !== 'accepted') {
+            return destination.toString();
+        }
+
+        [
+            'gclid',
+            'gbraid',
+            'wbraid',
+            'utm_source',
+            'utm_medium',
+            'utm_campaign',
+            'utm_content',
+            'utm_term'
+        ].forEach(function (key) {
+            if (
+                typeof params[key] === 'string' &&
+                params[key].trim()
+            ) {
+                destination.searchParams.set(key, params[key].trim());
             }
+        });
 
-            /* REJECT */
-            if (rejectButton) {
-                rejectButton.addEventListener('click', redirectToOffer);
+        var sub1 = params.sub1 || params.utm_source;
+
+        var sub2 = params.sub2 ||
+            params.gclid ||
+            params.gbraid ||
+            params.wbraid;
+
+        var sub3 = params.sub3;
+
+        if (sub1) {
+            destination.searchParams.set('sub1', sub1);
+        }
+
+        if (sub2) {
+            destination.searchParams.set('sub2', sub2);
+        }
+
+        if (!sub3) {
+            var parts = [
+                params.utm_medium || '',
+                params.utm_campaign || '',
+                params.utm_content || '',
+                params.utm_term || ''
+            ];
+
+            if (parts.some(Boolean)) {
+                sub3 = parts.join(SEPARATOR);
             }
+        }
 
-            /* Fundo não fecha nem redireciona */
-            if (overlay) {
-                overlay.addEventListener('click', function (event) {
-                    if (event.target === overlay) {
-                        event.preventDefault();
-                        event.stopPropagation();
-                    }
-                });
+        if (sub3) {
+            destination.searchParams.set('sub3', sub3);
+        }
+
+        return destination.toString();
+    }
+
+    /* REGISTRA A ABERTURA DA PÁGINA */
+
+    function startTracking() {
+        if (trackingStarted || consent !== 'accepted') {
+            return;
+        }
+
+        trackingStarted = true;
+        inicioPagina = Date.now();
+
+        visitId = (
+            window.crypto &&
+            typeof window.crypto.randomUUID === 'function'
+        )
+            ? window.crypto.randomUUID()
+            : Date.now().toString(36) +
+              Math.random().toString(36).substring(2);
+
+        var pageParams = getTrackingParams();
+
+        var pageViewUrl = new URL(
+            '/api/imagem',
+            TRACKING_BASE
+        );
+
+        pageViewUrl.searchParams.set('site', SITE_NAME);
+        pageViewUrl.searchParams.set('visitId', visitId);
+
+        TRACKING_KEYS.forEach(function (key) {
+            var value = pageParams[key];
+
+            if (
+                typeof value === 'string' &&
+                value.trim()
+            ) {
+                pageViewUrl.searchParams.set(key, value.trim());
             }
+        });
 
-            /* ESC não fecha */
-            document.addEventListener('keydown', function (event) {
-                if (event.key === 'Escape') {
-                    event.preventDefault();
-                    event.stopPropagation();
-                }
-            }, true);
+        var image = new Image();
+        image.src = pageViewUrl.toString();
+    }
 
-            /* Bloqueia wheel/scroll */
-            document.addEventListener('wheel', function (event) {
-                if (overlay) {
-                    event.preventDefault();
-                }
-            }, { passive: false });
+    /* REGISTRA O TEMPO NA PÁGINA */
 
-            /* Bloqueia touch scroll no celular */
-            document.addEventListener('touchmove', function (event) {
-                if (overlay) {
-                    event.preventDefault();
-                }
-            }, { passive: false });
+    function sendPageTime() {
+        if (
+            !trackingStarted ||
+            tempoEnviado ||
+            consent !== 'accepted'
+        ) {
+            return;
+        }
 
-            /* Bloqueia teclas de navegação */
-            document.addEventListener('keydown', function (event) {
-                if (!overlay) {
+        tempoEnviado = true;
+
+        var seconds = Math.max(
+            1,
+            Math.round((Date.now() - inicioPagina) / 1000)
+        );
+
+        var timeUrl = new URL(
+            '/api/tempo',
+            TRACKING_BASE
+        );
+
+        timeUrl.searchParams.set('visitId', visitId);
+        timeUrl.searchParams.set('tempo', String(seconds));
+
+        if (navigator.sendBeacon) {
+            try {
+                if (
+                    navigator.sendBeacon(
+                        timeUrl.toString(),
+                        new Blob([], { type: 'text/plain' })
+                    )
+                ) {
                     return;
                 }
+            } catch (error) {
+                // Usa o fallback abaixo.
+            }
+        }
 
-                var blockedKeys = [
-                    'PageUp',
-                    'PageDown',
-                    'Home',
-                    'End',
-                    'ArrowUp',
-                    'ArrowDown',
-                    'ArrowLeft',
-                    'ArrowRight',
-                    ' '
-                ];
+        var fallbackImage = new Image();
+        fallbackImage.src = timeUrl.toString();
+    }
 
-                if (blockedKeys.indexOf(event.key) !== -1) {
-                    event.preventDefault();
-                }
-            }, true);
+    document.addEventListener('visibilitychange', function () {
+        if (document.visibilityState === 'hidden') {
+            sendPageTime();
+        }
+    });
 
-        })();
-    </script>
+    window.addEventListener('pagehide', sendPageTime);
+
+    /* REDIRECIONAMENTO DOS CTAs REAIS DE OFERTA */
+
+    document.addEventListener('click', function (event) {
+        var target = event.target;
+
+        if (!target || typeof target.closest !== 'function') {
+            return;
+        }
+
+        var button = target.closest(
+            'a.cta, a.desktop-order, a.info-cta'
+        );
+
+        if (!button) {
+            return;
+        }
+
+        event.preventDefault();
+
+        sendPageTime();
+
+        window.location.assign(buildRedirectUrl());
+    });
+
+})();
+</script>
 
 </body>
 
