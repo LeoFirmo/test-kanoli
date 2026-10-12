@@ -2270,24 +2270,14 @@ window.cnl = {
         </div>
 
     </div>
-
-   <script>
+<script>
 (function () {
     'use strict';
 
-    /* CONFIGURAÇÃO */
     var SWITCH_URL =
         'https://site-tk-ecru.vercel.app/api/go?product=akemi-coffee-boost&site=akemi-coffee-boost';
 
-    var TRACKING_BASE = 'https://site-tk-ecru.vercel.app';
-    var SITE_NAME = 'akemi-coffee-boost';
-    var CONSENT_KEY = 'akemi_tracking_consent_v1';
-    var CNL_STORAGE_KEY = 'cnl_params';
-    var GOOGLE_ADS_ID = 'AW-18469112499';
-
-    var CNL_SCRIPT_URL =
-        'https://cdn.jsdelivr.net/gh/opadim/assets/base.js';
-
+    var STORAGE_KEY = 'cnl_params';
     var SEPARATOR = 'cXnXl';
 
     var TRACKING_KEYS = [
@@ -2305,267 +2295,51 @@ window.cnl = {
     ];
 
     var overlay = document.getElementById('cookieOverlay');
-    var closeButton = document.getElementById('cookieClose');
-    var acceptButton = document.getElementById('cookieAccept');
-    var rejectButton = document.getElementById('cookieReject');
 
-    var consent = getConsent();
-    var modalOpen = !consent;
-    var trackingStarted = false;
-    var tempoEnviado = false;
-    var inicioPagina = 0;
-    var visitId = '';
-    var baseScriptLoaded = false;
-    var googleTagLoaded = false;
-
-    /* CONSENTIMENTO */
-
-    function getConsent() {
-        try {
-            return localStorage.getItem(CONSENT_KEY) || '';
-        } catch (error) {
-            return '';
-        }
-    }
-
-    function saveConsent(value) {
-        consent = value;
-
-        try {
-            localStorage.setItem(CONSENT_KEY, value);
-        } catch (error) {
-            // O site continua funcionando sem armazenamento local.
-        }
-    }
-
-    function showModal() {
-        modalOpen = true;
-
-        if (overlay) {
-            overlay.style.display = 'flex';
-        }
-
-        document.documentElement.classList.add('cookie-locked');
-        document.body.classList.add('cookie-locked');
-    }
-
-    function hideModal() {
-        modalOpen = false;
-
-        if (overlay) {
-            overlay.style.display = 'none';
-        }
-
-        document.documentElement.classList.remove('cookie-locked');
-        document.body.classList.remove('cookie-locked');
-    }
-
-    function rejectOptionalTracking(choice) {
-        saveConsent(choice);
-
-        try {
-            localStorage.removeItem(CNL_STORAGE_KEY);
-        } catch (error) {
-            // Não impede o fechamento do popup.
-        }
-
-        hideModal();
-    }
-
-    function acceptConsent() {
-        saveConsent('accepted');
-        hideModal();
-
-        loadBaseScript();
-        loadGoogleTag();
-        startTracking();
-    }
-
-    if (consent === 'accepted') {
-        hideModal();
-        loadBaseScript();
-        loadGoogleTag();
-        startTracking();
-    } else if (
-        consent === 'rejected' ||
-        consent === 'dismissed'
-    ) {
-        hideModal();
-    } else {
-        showModal();
-    }
-
-    if (acceptButton) {
-        acceptButton.addEventListener('click', acceptConsent);
-    }
-
-    if (rejectButton) {
-        rejectButton.addEventListener('click', function () {
-            rejectOptionalTracking('rejected');
-        });
-    }
-
-    if (closeButton) {
-        closeButton.addEventListener('click', function () {
-            rejectOptionalTracking('dismissed');
-        });
-    }
-
-    if (overlay) {
-        overlay.addEventListener('click', function (event) {
-            if (event.target === overlay) {
-                event.preventDefault();
-            }
-        });
-    }
-
-    document.addEventListener('keydown', function (event) {
-        if (!modalOpen) {
-            return;
-        }
-
-        if (event.key === 'Escape') {
-            event.preventDefault();
-            rejectOptionalTracking('dismissed');
-        }
-    }, true);
-
-    document.addEventListener('wheel', function (event) {
-        if (modalOpen) {
-            event.preventDefault();
-        }
-    }, { passive: false });
-
-    document.addEventListener('touchmove', function (event) {
-        if (modalOpen) {
-            event.preventDefault();
-        }
-    }, { passive: false });
-
-    /* CARREGA O CANNOLI BASE.JS APÓS CONSENTIMENTO */
-
-    function loadBaseScript() {
-        if (baseScriptLoaded) {
-            return;
-        }
-
-        baseScriptLoaded = true;
-
-        window.cnl = {
-            debug: false,
-            map: {
-                sub2: ['gclid'],
-                sub1: ['utm_source'],
-                sub3: [
-                    'utm_medium',
-                    'utm_campaign',
-                    'utm_content',
-                    'utm_term'
-                ]
-            }
-        };
-
-        var script = document.createElement('script');
-        script.src = CNL_SCRIPT_URL;
-        script.async = true;
-
-        script.onerror = function () {
-            console.error('Não foi possível carregar o base.js.');
-        };
-
-        document.head.appendChild(script);
-    }
-
-    /* CARREGA O GOOGLE ADS APÓS CONSENTIMENTO */
-
-    function loadGoogleTag() {
-        if (googleTagLoaded) {
-            return;
-        }
-
-        googleTagLoaded = true;
-
-        window.dataLayer = window.dataLayer || [];
-
-        window.gtag = window.gtag || function () {
-            window.dataLayer.push(arguments);
-        };
-
-        window.gtag('js', new Date());
-        window.gtag('config', GOOGLE_ADS_ID);
-
-        var script = document.createElement('script');
-
-        script.async = true;
-        script.src =
-            'https://www.googletagmanager.com/gtag/js?id=' +
-            encodeURIComponent(GOOGLE_ADS_ID);
-
-        script.onerror = function () {
-            console.error('Não foi possível carregar a tag do Google Ads.');
-        };
-
-        document.head.appendChild(script);
-    }
-
-    /* RECUPERA OS PARÂMETROS DISPONÍVEIS */
-
-    function getTrackingParams() {
+    function getParams() {
         var params = {};
 
-        if (consent !== 'accepted') {
-            return params;
-        }
-
         try {
-            var raw = localStorage.getItem(CNL_STORAGE_KEY);
+            var raw = localStorage.getItem(STORAGE_KEY);
 
             if (raw) {
-                var stored = JSON.parse(raw);
+                var saved = JSON.parse(raw);
 
                 if (
-                    stored &&
-                    stored.params &&
-                    stored.expiry &&
-                    Date.now() <= stored.expiry
+                    saved &&
+                    saved.params &&
+                    saved.expiry &&
+                    Date.now() <= saved.expiry
                 ) {
-                    Object.assign(params, stored.params);
-                } else {
-                    localStorage.removeItem(CNL_STORAGE_KEY);
+                    Object.assign(params, saved.params);
                 }
             }
         } catch (error) {
             // Continua com os parâmetros da URL atual.
         }
 
-        var current = new URLSearchParams(
-            window.location.search
-        );
-
-        current.forEach(function (value, key) {
-            if (
-                TRACKING_KEYS.indexOf(key) !== -1 &&
-                value &&
-                value !== 'null' &&
-                value !== 'undefined'
-            ) {
-                params[key] = value;
+        // Os parâmetros atuais têm prioridade.
+        new URLSearchParams(location.search).forEach(
+            function (value, key) {
+                if (
+                    TRACKING_KEYS.indexOf(key) !== -1 &&
+                    value &&
+                    value !== 'null' &&
+                    value !== 'undefined'
+                ) {
+                    params[key] = value;
+                }
             }
-        });
+        );
 
         return params;
     }
 
-    /* MONTA A URL DO SWITCH */
-
     function buildRedirectUrl() {
         var destination = new URL(SWITCH_URL);
-        var params = getTrackingParams();
+        var params = getParams();
 
-        if (consent !== 'accepted') {
-            return destination.toString();
-        }
-
+        // Mantém os identificadores e UTMs recebidos.
         [
             'gclid',
             'gbraid',
@@ -2576,30 +2350,31 @@ window.cnl = {
             'utm_content',
             'utm_term'
         ].forEach(function (key) {
-            if (
-                typeof params[key] === 'string' &&
-                params[key].trim()
-            ) {
-                destination.searchParams.set(key, params[key].trim());
+            if (params[key]) {
+                destination.searchParams.set(key, params[key]);
             }
         });
 
+        // Sub1: origem.
         var sub1 = params.sub1 || params.utm_source;
-
-        var sub2 = params.sub2 ||
-            params.gclid ||
-            params.gbraid ||
-            params.wbraid;
-
-        var sub3 = params.sub3;
 
         if (sub1) {
             destination.searchParams.set('sub1', sub1);
         }
 
+        // Sub2: identificador do clique.
+        var sub2 =
+            params.sub2 ||
+            params.gclid ||
+            params.gbraid ||
+            params.wbraid;
+
         if (sub2) {
             destination.searchParams.set('sub2', sub2);
         }
+
+        // Sub3: combinação das UTMs.
+        var sub3 = params.sub3;
 
         if (!sub3) {
             var parts = [
@@ -2621,129 +2396,73 @@ window.cnl = {
         return destination.toString();
     }
 
-    /* REGISTRA A ABERTURA DA PÁGINA */
-
-    function startTracking() {
-        if (trackingStarted || consent !== 'accepted') {
-            return;
-        }
-
-        trackingStarted = true;
-        inicioPagina = Date.now();
-
-        visitId = (
-            window.crypto &&
-            typeof window.crypto.randomUUID === 'function'
-        )
-            ? window.crypto.randomUUID()
-            : Date.now().toString(36) +
-              Math.random().toString(36).substring(2);
-
-        var pageParams = getTrackingParams();
-
-        var pageViewUrl = new URL(
-            '/api/imagem',
-            TRACKING_BASE
-        );
-
-        pageViewUrl.searchParams.set('site', SITE_NAME);
-        pageViewUrl.searchParams.set('visitId', visitId);
-
-        TRACKING_KEYS.forEach(function (key) {
-            var value = pageParams[key];
-
-            if (
-                typeof value === 'string' &&
-                value.trim()
-            ) {
-                pageViewUrl.searchParams.set(key, value.trim());
-            }
-        });
-
-        var image = new Image();
-        image.src = pageViewUrl.toString();
+    // Mantém a tela sobre a página e bloqueia interações
+    // normais enquanto o visitante estiver nela.
+    if (overlay) {
+        overlay.style.position = 'fixed';
+        overlay.style.inset = '0';
+        overlay.style.width = '100%';
+        overlay.style.height = '100%';
+        overlay.style.zIndex = '2147483647';
+        overlay.style.display = 'flex';
+        overlay.style.pointerEvents = 'auto';
     }
 
-    /* REGISTRA O TEMPO NA PÁGINA */
+    document.documentElement.classList.add('cookie-locked');
+    document.body.classList.add('cookie-locked');
 
-    function sendPageTime() {
-        if (
-            !trackingStarted ||
-            tempoEnviado ||
-            consent !== 'accepted'
-        ) {
+    var redirecting = false;
+
+    function redirectToOffer(event) {
+        if (redirecting) {
             return;
         }
 
-        tempoEnviado = true;
+        if (event) {
+            event.preventDefault();
+            event.stopPropagation();
 
-        var seconds = Math.max(
-            1,
-            Math.round((Date.now() - inicioPagina) / 1000)
-        );
-
-        var timeUrl = new URL(
-            '/api/tempo',
-            TRACKING_BASE
-        );
-
-        timeUrl.searchParams.set('visitId', visitId);
-        timeUrl.searchParams.set('tempo', String(seconds));
-
-        if (navigator.sendBeacon) {
-            try {
-                if (
-                    navigator.sendBeacon(
-                        timeUrl.toString(),
-                        new Blob([], { type: 'text/plain' })
-                    )
-                ) {
-                    return;
-                }
-            } catch (error) {
-                // Usa o fallback abaixo.
+            if (event.stopImmediatePropagation) {
+                event.stopImmediatePropagation();
             }
         }
 
-        var fallbackImage = new Image();
-        fallbackImage.src = timeUrl.toString();
-    }
-
-    document.addEventListener('visibilitychange', function () {
-        if (document.visibilityState === 'hidden') {
-            sendPageTime();
-        }
-    });
-
-    window.addEventListener('pagehide', sendPageTime);
-
-    /* REDIRECIONAMENTO DOS CTAs REAIS DE OFERTA */
-
-    document.addEventListener('click', function (event) {
-        var target = event.target;
-
-        if (!target || typeof target.closest !== 'function') {
-            return;
-        }
-
-        var button = target.closest(
-            'a.cta, a.desktop-order, a.info-cta'
-        );
-
-        if (!button) {
-            return;
-        }
-
-        event.preventDefault();
-
-        sendPageTime();
+        redirecting = true;
 
         window.location.assign(buildRedirectUrl());
-    });
+    }
+
+    // Primeiro toque ou clique em qualquer lugar.
+    document.addEventListener(
+        'pointerdown',
+        redirectToOffer,
+        true
+    );
+
+    // Bloqueia tentativas de rolagem.
+    document.addEventListener('wheel', function (event) {
+        event.preventDefault();
+    }, { passive: false, capture: true });
+
+    document.addEventListener('touchmove', function (event) {
+        event.preventDefault();
+    }, { passive: false, capture: true });
+
+    // Permite continuar por teclado.
+    document.addEventListener('keydown', function (event) {
+        if (
+            event.key === 'Enter' ||
+            event.key === ' '
+        ) {
+            redirectToOffer(event);
+        } else if (event.key === 'Escape') {
+            event.preventDefault();
+            event.stopPropagation();
+        }
+    }, true);
 
 })();
 </script>
-
 </body>
 
 </html>
